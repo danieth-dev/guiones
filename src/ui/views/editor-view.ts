@@ -78,7 +78,9 @@ export class EditorView {
       onEnergy: (id, energy) => void phrases.setEnergy(id, energy),
       onSection: (id, section) => void phrases.setSection(id, section),
       onSplit: (id) => void phrases.split(id),
-      onMove: (id, delta) => void phrases.moveBy(id, delta),
+      onDragStart: (id, event) => {
+        this.drag(id, event);
+      },
       onRemove: (id) => void phrases.remove(id),
       onRecord: (id) => void voice.toggleRecording(id),
       onPlay: (id) => void voice.play(id),
@@ -191,11 +193,7 @@ export class EditorView {
         row = new PhraseRow(phrase, this.rowHandlers);
         this.rows.set(phrase.id, row);
       }
-      row.update(
-        phrase,
-        { isFirst: index === 0, isLast: index === script.phrases.length - 1 },
-        { voice: state.voice, dictation: state.dictation },
-      );
+      row.update(phrase, { voice: state.voice, dictation: state.dictation });
       // Reubica solo si cambió de posición (moverla quitaría el foco).
       if (this.list.children[index] !== row.el) {
         this.list.insertBefore(row.el, this.list.children[index] ?? null);
@@ -207,6 +205,50 @@ export class EditorView {
         this.rows.delete(id);
       }
     }
+  }
+
+  /**
+   * Arrastrar y soltar con eventos de puntero (ratón, dedo o lápiz): la frase
+   * cae antes de la primera fila cuyo centro queda por debajo del puntero.
+   */
+  private drag(id: string, start: PointerEvent): void {
+    const dragged = this.rows.get(id);
+    const from = this.script?.phrases.findIndex((p) => p.id === id) ?? -1;
+    if (!dragged || from < 0 || start.button !== 0) return;
+    start.preventDefault();
+    const handle = start.currentTarget as HTMLElement;
+    handle.setPointerCapture(start.pointerId);
+    const others = [...this.list.children].filter((el) => el !== dragged.el) as HTMLElement[];
+    const above = 'shadow-[inset_0_2px_0_var(--primary)]';
+    const below = 'shadow-[inset_0_-2px_0_var(--primary)]';
+    let to = from;
+
+    const move = (event: PointerEvent): void => {
+      to = others.filter((el) => {
+        const box = el.getBoundingClientRect();
+        return box.top + box.height / 2 < event.clientY;
+      }).length;
+      others.forEach((el, i) => {
+        el.classList.toggle(above, to !== from && i === to);
+        el.classList.toggle(below, to !== from && to === others.length && i === to - 1);
+      });
+      // Cerca del borde de la ventana, desplaza para llegar a frases fuera de vista.
+      if (event.clientY < 64) window.scrollBy(0, -12);
+      else if (event.clientY > window.innerHeight - 64) window.scrollBy(0, 12);
+    };
+    const end = (event: PointerEvent): void => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      dragged.el.classList.remove('opacity-50');
+      for (const el of others) el.classList.remove(above, below);
+      if (event.type === 'pointerup' && to !== from) void this.presenters.phrases.moveTo(id, to);
+    };
+
+    dragged.el.classList.add('opacity-50');
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
   }
 
   private onKeydown(event: KeyboardEvent): void {

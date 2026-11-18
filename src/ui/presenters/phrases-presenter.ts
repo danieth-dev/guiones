@@ -85,19 +85,22 @@ export class PhrasesPresenter {
     if (view) this.focusNew(script, view);
   }
 
+  /** Con el teclado (Alt + ↑/↓): mueve una posición y deja el foco en la frase. */
   async moveBy(phraseId: string, delta: number): Promise<void> {
+    const index = this.current()?.phrases.findIndex((p) => p.id === phraseId) ?? -1;
+    if (index < 0) return;
+    if (await this.moveTo(phraseId, Math.max(0, index + delta))) this.requestFocus(phraseId);
+  }
+
+  /** Lleva la frase a otra posición (arrastrar y soltar). */
+  async moveTo(phraseId: string, toIndex: number): Promise<boolean> {
     const script = this.current();
-    const index = script?.phrases.findIndex((p) => p.id === phraseId) ?? -1;
-    if (!script || index < 0) return;
+    if (!script) return false;
     await this.flush(phraseId);
     const view = await this.runner.runView(() =>
-      this.app.movePhrase.execute({
-        scriptId: script.id,
-        phraseId,
-        toIndex: Math.max(0, index + delta),
-      }),
+      this.app.movePhrase.execute({ scriptId: script.id, phraseId, toIndex }),
     );
-    if (view) this.requestFocus(phraseId);
+    return view !== null;
   }
 
   async remove(phraseId: string): Promise<void> {

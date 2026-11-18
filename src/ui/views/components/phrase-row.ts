@@ -26,7 +26,8 @@ export interface PhraseRowHandlers extends VoiceHandlers {
   onEnergy(phraseId: string, energy: Energy): void;
   onSection(phraseId: string, section: Section): void;
   onSplit(phraseId: string): void;
-  onMove(phraseId: string, delta: number): void;
+  /** Empieza a arrastrar la frase desde su asa (la lista decide dónde cae). */
+  onDragStart(phraseId: string, event: PointerEvent): void;
   onRemove(phraseId: string): void;
   onDictate(phraseId: string): void;
 }
@@ -70,8 +71,6 @@ export class PhraseRow {
   private readonly note: HTMLInputElement;
   private readonly section: HTMLSelectElement;
   private readonly menu: HTMLDetailsElement;
-  private readonly upButton: HTMLButtonElement;
-  private readonly downButton: HTMLButtonElement;
   private readonly splitButton: HTMLButtonElement;
   private readonly voice: VoiceControls;
   private readonly dictateButton: HTMLButtonElement;
@@ -151,14 +150,6 @@ export class PhraseRow {
       close();
       handlers.onSplit(this.phrase.id);
     });
-    this.upButton = menuItem(`Subir (${hintFor('MOVE_UP')})`, () => {
-      close();
-      handlers.onMove(this.phrase.id, -1);
-    });
-    this.downButton = menuItem(`Bajar (${hintFor('MOVE_DOWN')})`, () => {
-      close();
-      handlers.onMove(this.phrase.id, 1);
-    });
     this.menu = h(
       'details',
       { class: 'relative' },
@@ -184,8 +175,6 @@ export class PhraseRow {
           this.section,
         ),
         this.splitButton,
-        this.upButton,
-        this.downButton,
         menuItem(
           'Eliminar frase',
           () => {
@@ -246,7 +235,30 @@ export class PhraseRow {
           'phrase-row group -ml-4 grid grid-cols-1 gap-x-2 gap-y-0.5 border-b border-line py-3.5 pl-4 transition focus-within:shadow-[inset_3px_0_0_var(--primary)] sm:grid-cols-[64px_minmax(0,1fr)]',
         attrs: { 'data-phrase-id': phrase.id, role: 'listitem' },
       },
-      this.gutter,
+      h(
+        'div',
+        { class: 'flex items-start gap-0.5' },
+        h(
+          'button',
+          {
+            // touch-none: en el móvil el dedo arrastra la frase en vez de desplazar la página.
+            class:
+              'grid size-7 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted transition hover:bg-surface hover:text-text active:cursor-grabbing',
+            attrs: {
+              type: 'button',
+              'aria-label': `Arrastrar para mover (o ${hintFor('MOVE_UP')} / ${hintFor('MOVE_DOWN')})`,
+              title: `Arrastra para mover la frase (${hintFor('MOVE_UP')} / ${hintFor('MOVE_DOWN')})`,
+            },
+            on: {
+              pointerdown: (event) => {
+                handlers.onDragStart(this.phrase.id, event);
+              },
+            },
+          },
+          icon('grip', 'size-4'),
+        ),
+        this.gutter,
+      ),
       h(
         'div',
         { class: 'min-w-0' },
@@ -265,7 +277,6 @@ export class PhraseRow {
 
   update(
     phrase: PhraseView,
-    position: { readonly isFirst: boolean; readonly isLast: boolean },
     ui: { readonly voice: VoiceUiState; readonly dictation: DictationUiState },
   ): void {
     this.phrase = phrase;
@@ -321,8 +332,6 @@ export class PhraseRow {
     this.el.classList.toggle('bg-danger-soft/40', recording);
     this.tools.classList.toggle('block!', recording || listening);
 
-    this.upButton.disabled = position.isFirst;
-    this.downButton.disabled = position.isLast;
     this.splitButton.disabled = phrase.words < 2;
   }
 

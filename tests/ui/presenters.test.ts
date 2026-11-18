@@ -156,6 +156,11 @@ describe('PhrasesPresenter', () => {
     expect(t.current().phrases[2]?.id).toBe(id);
     expect(t.store.get().focus?.phraseId).toBe(id);
     await t.phrases.moveBy('nada', 1);
+    // Arrastrar y soltar: va directo a la posición, sin pedir foco.
+    t.phrases.focus('otra');
+    expect(await t.phrases.moveTo(id, 0)).toBe(true);
+    expect(t.current().phrases[0]?.id).toBe(id);
+    expect(t.store.get().focus?.phraseId).toBe('otra');
     await t.phrases.remove(id);
     expect(t.current().phrases.some((p) => p.id === id)).toBe(false);
     t.phrases.focus('x');
