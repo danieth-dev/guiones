@@ -40,10 +40,15 @@ export interface NewScript {
 
 export type PhraseLength = 'OK' | 'LONG';
 
-/** Llevas `seconds` con el mismo plano o la misma energía: conviene cambiar aquí. */
+/**
+ * Aviso de ritmo en una frase: llevas `seconds` con el mismo plano o la misma
+ * energía, o el inicio tarda `seconds` en llegar al punto.
+ */
 export interface RhythmHint {
-  readonly kind: 'SAME_SHOT' | 'SAME_ENERGY';
+  readonly kind: 'SAME_SHOT' | 'SAME_ENERGY' | 'SLOW_OPENING';
   readonly seconds: number;
+  /** Lo que el formato recomienda (segundos). */
+  readonly limit: number;
 }
 export type DurationStatus = 'EMPTY' | 'UNDER' | 'IN_RANGE' | 'OVER';
 
@@ -150,6 +155,8 @@ export class Script {
    * Dónde el guion se vuelve monótono: el aviso cae en la frase con la que
    * dos o más frases seguidas pasan del tiempo del formato con el mismo plano
    * o la misma energía. Las frases vacías no cuentan ni cortan la racha.
+   * Además, si la primera frase dicha es el inicio y dura más de lo que el
+   * formato permite, se avisa ahí.
    */
   rhythmHints(): ReadonlyMap<PhraseId, readonly RhythmHint[]> {
     const limits = this.props.format.changeEvery;
@@ -158,6 +165,14 @@ export class Script {
       SAME_ENERGY: { value: '', seconds: 0, count: 0, limit: limits.energy },
     };
     const hints = new Map<PhraseId, RhythmHint[]>();
+    const first = this.props.phrases.find((p) => !p.text.isEmpty);
+    if (first?.section === 'OPENING') {
+      const seconds = this.durationOf(first).rounded();
+      const limit = this.props.format.openingSeconds;
+      if (seconds > limit) {
+        hints.set(first.id, [{ kind: 'SLOW_OPENING', seconds, limit }]);
+      }
+    }
     for (const phrase of this.props.phrases) {
       if (phrase.text.isEmpty) continue;
       const seconds = this.durationOf(phrase).seconds;
@@ -175,7 +190,7 @@ export class Script {
         }
         if (streak.count >= 2 && streak.seconds > streak.limit) {
           const list = hints.get(phrase.id) ?? [];
-          list.push({ kind, seconds: Math.round(streak.seconds) });
+          list.push({ kind, seconds: Math.round(streak.seconds), limit: streak.limit });
           hints.set(phrase.id, list);
           // Empieza a contar de nuevo: el próximo aviso, tras otro tramo igual de largo.
           Object.assign(streak, { seconds: 0, count: 0 });

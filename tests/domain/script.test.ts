@@ -233,3 +233,24 @@ describe('Script: ritmo', () => {
     expect(script.rhythmHints().size).toBe(0);
   });
 });
+
+describe('Script: inicio', () => {
+  const withOpening = (words: number, section: 'OPENING' | 'BODY' = 'OPENING') =>
+    apply(
+      unwrap(
+        Script.create({ id: scriptId('sc_i'), format: VideoFormat.SHORT_VERTICAL, now: 0 }),
+      ).addPhrase(phraseId('ini'), section, {
+        text: SpokenText.of(Array.from({ length: words }, () => 'palabra').join(' ')),
+      }),
+    );
+
+  it('avisa si la primera frase tarda más de lo que permite el formato', () => {
+    // Vertical corto: 3 s. A 160 ppm, 8 palabras = 3 s y 12 palabras = 4,5 s.
+    expect(withOpening(8).rhythmHints().size).toBe(0);
+    expect(withOpening(12).rhythmHints().get(phraseId('ini'))).toEqual([
+      { kind: 'SLOW_OPENING', seconds: 4.5, limit: 3 },
+    ]);
+    // Si el guion no empieza con el inicio, no es un inicio lento.
+    expect(withOpening(12, 'BODY').rhythmHints().size).toBe(0);
+  });
+});

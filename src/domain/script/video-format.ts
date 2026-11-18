@@ -42,6 +42,8 @@ export class VideoFormat {
     /** Más palabras que esto en una frase empieza a sonar a texto leído. */
     readonly comfortableWords: number,
     readonly changeEvery: ChangeEvery,
+    /** La primera frase debe llegar al punto en este tiempo, o la gente se va. */
+    readonly openingSeconds: number,
     readonly skeleton: readonly SkeletonSlot[],
   ) {}
 
@@ -54,6 +56,7 @@ export class VideoFormat {
     60,
     12,
     { shot: 8, energy: 15 },
+    3,
     [
       {
         section: 'OPENING',
@@ -92,6 +95,7 @@ export class VideoFormat {
     180,
     16,
     { shot: 15, energy: 30 },
+    4,
     [
       {
         section: 'OPENING',
@@ -131,6 +135,7 @@ export class VideoFormat {
     1200,
     22,
     { shot: 30, energy: 60 },
+    8,
     [
       {
         section: 'OPENING',

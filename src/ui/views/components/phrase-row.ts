@@ -3,6 +3,7 @@ import {
   ENERGIES,
   ENERGY_LABELS,
   isShot,
+  OPENING_IDEAS,
   SECTION_LABELS,
   SECTIONS,
   SHOT_HINTS,
@@ -61,6 +62,10 @@ export class PhraseRow {
   private readonly summary = h('p', { class: 'mt-1 text-xs text-muted group-focus-within:hidden' });
   private readonly longNote = h('p', { class: 'mt-1 text-xs text-warn' });
   private readonly rhythmNote = h('p', { class: 'mt-1 text-xs text-warn' });
+  /** Ideas para empezar: solo en la primera frase, mientras el inicio está vacío. */
+  private readonly ideas: HTMLElement;
+  /** Ejemplo elegido en las ideas: reemplaza la pista gris (no se guarda). */
+  private example: string | null = null;
   private readonly tools: HTMLElement;
   private readonly shot: HTMLSelectElement;
   private readonly energyGroup = h('span', {
@@ -187,6 +192,27 @@ export class PhraseRow {
       ),
     );
 
+    this.ideas = h(
+      'div',
+      { class: 'mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted' },
+      'Ideas para empezar:',
+      ...OPENING_IDEAS.map((idea) =>
+        h('button', {
+          class:
+            'rounded-full bg-surface px-2.5 py-1 text-text transition hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary',
+          text: idea.label,
+          attrs: { type: 'button', title: idea.example },
+          on: {
+            click: () => {
+              this.example = idea.example;
+              this.text.placeholder = idea.example;
+              this.text.focus();
+            },
+          },
+        }),
+      ),
+    );
+
     this.voice = new VoiceControls(handlers);
     this.dictateButton = h(
       'button',
@@ -268,6 +294,7 @@ export class PhraseRow {
         this.summary,
         this.longNote,
         this.rhythmNote,
+        this.ideas,
         this.tools,
       ),
     );
@@ -288,7 +315,9 @@ export class PhraseRow {
     this.gutter.className = `pt-1 ${GUTTER[phrase.section]}`;
 
     this.text.placeholder =
-      phrase.guide || 'Lo que dices de un tirón, como se lo contarías a un amigo…';
+      this.example ??
+      (phrase.guide || 'Lo que dices de un tirón, como se lo contarías a un amigo…');
+    this.ideas.hidden = !(phrase.order === 1 && phrase.section === 'OPENING' && phrase.text === '');
     this.text.classList.toggle('text-[20px]', phrase.section === 'OPENING');
     this.text.classList.toggle('font-semibold', phrase.section === 'OPENING');
     syncValue(this.text, phrase.text);
@@ -317,11 +346,15 @@ export class PhraseRow {
 
     this.rhythmNote.hidden = phrase.rhythm.length === 0;
     this.rhythmNote.textContent = phrase.rhythm
-      .map((hint) =>
-        hint.kind === 'SAME_SHOT'
-          ? `Llevas ${String(hint.seconds)} s con ${phrase.shotLabel.toLowerCase()}: cambia de plano aquí.`
-          : `Llevas ${String(hint.seconds)} s con energía ${phrase.energyLabel.toLowerCase()}: cambia la energía aquí para no aburrir.`,
-      )
+      .map((hint) => {
+        const seconds = formatSeconds(hint.seconds);
+        if (hint.kind === 'SLOW_OPENING') {
+          return `El inicio tarda ${seconds} en llegar al punto: en este formato la gente decide en ${String(hint.limit)} s. Córtalo.`;
+        }
+        return hint.kind === 'SAME_SHOT'
+          ? `Llevas ${seconds} con ${phrase.shotLabel.toLowerCase()}: cambia de plano aquí.`
+          : `Llevas ${seconds} con energía ${phrase.energyLabel.toLowerCase()}: cambia la energía aquí para no aburrir.`;
+      })
       .join(' ');
 
     const details = [phrase.shotLabel, `Energía ${phrase.energyLabel.toLowerCase()}`];
