@@ -179,3 +179,57 @@ describe('Script: frases', () => {
     expect(errorCode(script.remove(phraseId('nada')))).toBe('NOT_FOUND');
   });
 });
+
+describe('Script: ritmo', () => {
+  // 12 palabras a 160 ppm = 4,5 s. Vertical corto: cambiar plano cada 8 s y energía cada 15 s.
+  const twelve = SpokenText.of('uno dos tres cuatro cinco seis siete ocho nueve diez once doce');
+  const build = (energies: readonly ('NORMAL' | 'HIGH')[], empty = false): Script => {
+    let script = unwrap(
+      Script.create({ id: scriptId('sc_r'), format: VideoFormat.SHORT_VERTICAL, now: 0 }),
+    );
+    energies.forEach((energy, i) => {
+      if (empty && i === 1) {
+        script = apply(script.addPhrase(phraseId('vacia'), 'BODY', { shot: 'WIDE' }));
+      }
+      script = apply(
+        script.addPhrase(phraseId(`p${String(i)}`), 'BODY', {
+          text: twelve,
+          shot: 'MEDIUM',
+          energy,
+        }),
+      );
+    });
+    return script;
+  };
+  const kinds = (script: Script) =>
+    Object.fromEntries(
+      [...script.rhythmHints()].map(([id, hints]) => [id, hints.map((h) => h.kind)]),
+    );
+
+  it('avisa donde llevas demasiado con el mismo plano o la misma energía', () => {
+    const script = build(['NORMAL', 'NORMAL', 'NORMAL', 'NORMAL']);
+    expect(kinds(script)).toEqual({
+      p1: ['SAME_SHOT'],
+      p3: ['SAME_SHOT', 'SAME_ENERGY'],
+    });
+    expect(script.rhythmHints().get(phraseId('p3'))?.[1]?.seconds).toBe(18);
+  });
+
+  it('cambiar la energía corta la racha; una frase vacía no la corta', () => {
+    expect(kinds(build(['NORMAL', 'NORMAL', 'HIGH', 'NORMAL']))).toEqual({
+      p1: ['SAME_SHOT'],
+      p3: ['SAME_SHOT'],
+    });
+    expect(kinds(build(['NORMAL', 'NORMAL'], true))).toEqual({ p1: ['SAME_SHOT'] });
+  });
+
+  it('una sola frase larga no es una racha', () => {
+    const long = SpokenText.of(Array.from({ length: 40 }, () => 'palabra').join(' '));
+    const script = apply(
+      unwrap(
+        Script.create({ id: scriptId('sc_l'), format: VideoFormat.SHORT_VERTICAL, now: 0 }),
+      ).addPhrase(phraseId('larga'), 'BODY', { text: long }),
+    );
+    expect(script.rhythmHints().size).toBe(0);
+  });
+});

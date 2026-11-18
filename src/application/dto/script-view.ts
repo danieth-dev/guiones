@@ -7,6 +7,7 @@ import {
   type FormatId,
   type Orientation,
   type PhraseLength,
+  type RhythmHint,
   type Script,
   type Section,
   type Shot,
@@ -51,6 +52,8 @@ export interface PhraseView {
   readonly length: PhraseLength;
   /** Grabación de la frase, si existe y corresponde al texto actual. */
   readonly take: string | null;
+  /** Avisos de ritmo: aquí conviene cambiar de plano o de energía. */
+  readonly rhythm: readonly RhythmHint[];
 }
 
 export interface ScriptView {
@@ -84,38 +87,42 @@ export const toFormatView = (format: VideoFormat): FormatView => ({
   maxSeconds: format.maxSeconds,
 });
 
-export const toScriptView = (script: Script): ScriptView => ({
-  id: script.id,
-  title: script.title,
-  format: toFormatView(script.format),
-  wordsPerMinute: script.rate.wordsPerMinute,
-  comfortableWords: script.format.comfortableWords,
-  phrases: script.phrases.map((phrase, index) => {
-    const suggestedShot = script.suggestedShot(phrase);
-    return {
-      id: phrase.id,
-      order: index + 1,
-      section: phrase.section,
-      sectionLabel: SECTION_LABELS[phrase.section],
-      text: phrase.text.value,
-      guide: phrase.guide,
-      shot: phrase.shot,
-      suggestedShot,
-      shotLabel: SHOT_LABELS[phrase.shot ?? suggestedShot],
-      energy: phrase.energy,
-      energyLabel: ENERGY_LABELS[phrase.energy],
-      note: phrase.note.value,
-      words: phrase.text.wordCount,
-      seconds: script.durationOf(phrase).rounded(),
-      length: script.lengthOf(phrase),
-      take: phrase.take,
-    };
-  }),
-  estimatedSec: script.estimatedDuration().rounded(),
-  durationStatus: script.durationStatus(),
-  createdAt: script.createdAt,
-  updatedAt: script.updatedAt,
-});
+export const toScriptView = (script: Script): ScriptView => {
+  const rhythm = script.rhythmHints();
+  return {
+    id: script.id,
+    title: script.title,
+    format: toFormatView(script.format),
+    wordsPerMinute: script.rate.wordsPerMinute,
+    comfortableWords: script.format.comfortableWords,
+    phrases: script.phrases.map((phrase, index) => {
+      const suggestedShot = script.suggestedShot(phrase);
+      return {
+        id: phrase.id,
+        order: index + 1,
+        section: phrase.section,
+        sectionLabel: SECTION_LABELS[phrase.section],
+        text: phrase.text.value,
+        guide: phrase.guide,
+        shot: phrase.shot,
+        suggestedShot,
+        shotLabel: SHOT_LABELS[phrase.shot ?? suggestedShot],
+        energy: phrase.energy,
+        energyLabel: ENERGY_LABELS[phrase.energy],
+        note: phrase.note.value,
+        words: phrase.text.wordCount,
+        seconds: script.durationOf(phrase).rounded(),
+        length: script.lengthOf(phrase),
+        take: phrase.take,
+        rhythm: rhythm.get(phrase.id) ?? [],
+      };
+    }),
+    estimatedSec: script.estimatedDuration().rounded(),
+    durationStatus: script.durationStatus(),
+    createdAt: script.createdAt,
+    updatedAt: script.updatedAt,
+  };
+};
 
 export const toScriptSummary = (script: Script): ScriptSummary => ({
   id: script.id,

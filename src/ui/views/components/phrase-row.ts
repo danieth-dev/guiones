@@ -60,6 +60,7 @@ export class PhraseRow {
   private readonly interim = h('p', { class: 'mt-1 text-lg italic leading-relaxed text-muted' });
   private readonly summary = h('p', { class: 'mt-1 text-xs text-muted group-focus-within:hidden' });
   private readonly longNote = h('p', { class: 'mt-1 text-xs text-warn' });
+  private readonly rhythmNote = h('p', { class: 'mt-1 text-xs text-warn' });
   private readonly tools: HTMLElement;
   private readonly shot: HTMLSelectElement;
   private readonly energyGroup = h('span', {
@@ -266,6 +267,7 @@ export class PhraseRow {
         this.interim,
         this.summary,
         this.longNote,
+        this.rhythmNote,
         this.tools,
       ),
     );
@@ -312,6 +314,15 @@ export class PhraseRow {
     this.seconds.className = `text-xs tabular-nums ${long ? 'text-warn' : 'text-ok'}`;
     this.longNote.hidden = !long;
     this.longNote.textContent = `${String(phrase.words)} palabras: suena a texto leído. Divídela en dos (${hintFor('SPLIT')}).`;
+
+    this.rhythmNote.hidden = phrase.rhythm.length === 0;
+    this.rhythmNote.textContent = phrase.rhythm
+      .map((hint) =>
+        hint.kind === 'SAME_SHOT'
+          ? `Llevas ${String(hint.seconds)} s con ${phrase.shotLabel.toLowerCase()}: cambia de plano aquí.`
+          : `Llevas ${String(hint.seconds)} s con energía ${phrase.energyLabel.toLowerCase()}: cambia la energía aquí para no aburrir.`,
+      )
+      .join(' ');
 
     const details = [phrase.shotLabel, `Energía ${phrase.energyLabel.toLowerCase()}`];
     if (phrase.note) details[0] = `${phrase.shotLabel}: ${phrase.note}`;

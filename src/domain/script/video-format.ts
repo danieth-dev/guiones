@@ -12,6 +12,16 @@ export interface SkeletonSlot {
   readonly energy: Energy;
 }
 
+/**
+ * Cada cuántos segundos conviene cambiar de plano o de energía para que el
+ * video no se haga monótono. Orientativo: los videos cortos piden cambios
+ * más seguidos.
+ */
+export interface ChangeEvery {
+  readonly shot: number;
+  readonly energy: number;
+}
+
 export const FORMAT_IDS = ['SHORT_VERTICAL', 'MEDIUM_VERTICAL', 'LONG_HORIZONTAL'] as const;
 export type FormatId = (typeof FORMAT_IDS)[number];
 
@@ -31,6 +41,7 @@ export class VideoFormat {
     readonly maxSeconds: number,
     /** Más palabras que esto en una frase empieza a sonar a texto leído. */
     readonly comfortableWords: number,
+    readonly changeEvery: ChangeEvery,
     readonly skeleton: readonly SkeletonSlot[],
   ) {}
 
@@ -42,6 +53,7 @@ export class VideoFormat {
     15,
     60,
     12,
+    { shot: 8, energy: 15 },
     [
       {
         section: 'OPENING',
@@ -79,6 +91,7 @@ export class VideoFormat {
     60,
     180,
     16,
+    { shot: 15, energy: 30 },
     [
       {
         section: 'OPENING',
@@ -117,6 +130,7 @@ export class VideoFormat {
     180,
     1200,
     22,
+    { shot: 30, energy: 60 },
     [
       {
         section: 'OPENING',

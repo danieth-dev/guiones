@@ -1,4 +1,5 @@
-import type { ScriptView } from '../../application';
+import type { PhraseView, ScriptView } from '../../application';
+import { ENERGIES, ENERGY_LABELS } from '../../domain';
 import { matchShortcut } from '../keyboard/shortcuts';
 import type { DictationPresenter } from '../presenters/dictation-presenter';
 import type { PhrasesPresenter } from '../presenters/phrases-presenter';
@@ -10,7 +11,7 @@ import type { AppState } from '../store/app-state';
 import { PhraseRow } from './components/phrase-row';
 import { TopBar } from './components/top-bar';
 import { autosize, h, replaceChildren } from './dom';
-import { formatClock } from './labels';
+import { formatClock, formatSeconds } from './labels';
 
 export interface EditorPresenters {
   readonly scripts: ScriptsPresenter;
@@ -20,6 +21,13 @@ export interface EditorPresenters {
   readonly settings: SettingsPresenter;
   readonly teleprompter: TeleprompterPresenter;
 }
+
+/** Color de cada tramo de la barra de ritmo según la energía de la frase. */
+const ENERGY_FILL: Readonly<Record<PhraseView['energy'], string>> = {
+  CALM: 'bg-primary/40',
+  NORMAL: 'bg-muted/35',
+  HIGH: 'bg-warn-fill',
+};
 
 const DURATION_BAR: Readonly<Record<ScriptView['durationStatus'], string>> = {
   EMPTY: 'bg-line',
@@ -41,6 +49,7 @@ export class EditorView {
   private readonly duration = h('div', {
     class: 'mt-3.5 flex items-center gap-3 text-[13px] text-text',
   });
+  private readonly rhythm = h('div', { class: 'mt-2' });
   private readonly list = h('div', { attrs: { role: 'list' } });
   private readonly rows = new Map<string, PhraseRow>();
   private script: ScriptView | null = null;
@@ -97,6 +106,7 @@ export class EditorView {
         this.heading,
         this.title,
         this.duration,
+        this.rhythm,
         h(
           'p',
           { class: 'mt-5 rounded-control bg-surface px-3.5 py-3 text-[13px] text-text' },
@@ -138,11 +148,59 @@ export class EditorView {
       });
     }
     this.renderDuration(script);
+    this.renderRhythm(script);
     this.renderPhrases(state, script);
     if (state.focus && state.focus.nonce !== this.lastFocusNonce) {
       this.lastFocusNonce = state.focus.nonce;
       this.rows.get(state.focus.phraseId)?.focus();
     }
+  }
+
+  /**
+   * Barra de ritmo: un tramo por frase, de ancho según lo que dura y de color
+   * según su energía. Un guion plano se ve como una fila de bloques iguales.
+   */
+  private renderRhythm(script: ScriptView): void {
+    const spoken = script.phrases.filter((p) => p.seconds > 0);
+    this.rhythm.hidden = spoken.length < 2;
+    if (this.rhythm.hidden) return;
+    const label = (p: PhraseView): string =>
+      `${p.section === 'BODY' ? String(p.order) : p.sectionLabel}: ${formatSeconds(p.seconds)}, energía ${p.energyLabel.toLowerCase()}`;
+    replaceChildren(
+      this.rhythm,
+      h(
+        'div',
+        {
+          class: 'flex h-2 gap-0.5',
+          attrs: {
+            role: 'img',
+            'aria-label': `Ritmo del guion. ${spoken.map(label).join('; ')}.`,
+          },
+        },
+        ...spoken.map((p) =>
+          h('div', {
+            class: `min-w-1 rounded-full ${ENERGY_FILL[p.energy]}`,
+            attrs: { style: `flex-grow:${String(p.seconds)}`, title: label(p) },
+          }),
+        ),
+      ),
+      h(
+        'p',
+        {
+          class: 'mt-1.5 flex items-center gap-3 text-xs text-muted',
+          attrs: { 'aria-hidden': 'true' },
+        },
+        'Ritmo',
+        ...ENERGIES.map((energy) =>
+          h(
+            'span',
+            { class: 'inline-flex items-center gap-1' },
+            h('span', { class: `size-2 rounded-full ${ENERGY_FILL[energy]}` }),
+            ENERGY_LABELS[energy].toLowerCase(),
+          ),
+        ),
+      ),
+    );
   }
 
   /** Barra de duración: cuánto llevas frente al máximo del formato. */

@@ -39,6 +39,12 @@ export interface NewScript {
 }
 
 export type PhraseLength = 'OK' | 'LONG';
+
+/** Llevas `seconds` con el mismo plano o la misma energía: conviene cambiar aquí. */
+export interface RhythmHint {
+  readonly kind: 'SAME_SHOT' | 'SAME_ENERGY';
+  readonly seconds: number;
+}
 export type DurationStatus = 'EMPTY' | 'UNDER' | 'IN_RANGE' | 'OVER';
 
 /**
@@ -138,6 +144,45 @@ export class Script {
       .filter((p) => p.section === 'BODY')
       .findIndex((p) => p.id === phrase.id);
     return this.props.format.suggestShot(phrase.section, Math.max(0, bodyIndex));
+  }
+
+  /**
+   * Dónde el guion se vuelve monótono: el aviso cae en la frase con la que
+   * dos o más frases seguidas pasan del tiempo del formato con el mismo plano
+   * o la misma energía. Las frases vacías no cuentan ni cortan la racha.
+   */
+  rhythmHints(): ReadonlyMap<PhraseId, readonly RhythmHint[]> {
+    const limits = this.props.format.changeEvery;
+    const streaks = {
+      SAME_SHOT: { value: '', seconds: 0, count: 0, limit: limits.shot },
+      SAME_ENERGY: { value: '', seconds: 0, count: 0, limit: limits.energy },
+    };
+    const hints = new Map<PhraseId, RhythmHint[]>();
+    for (const phrase of this.props.phrases) {
+      if (phrase.text.isEmpty) continue;
+      const seconds = this.durationOf(phrase).seconds;
+      const values = {
+        SAME_SHOT: phrase.shot ?? this.suggestedShot(phrase),
+        SAME_ENERGY: phrase.energy,
+      };
+      for (const kind of ['SAME_SHOT', 'SAME_ENERGY'] as const) {
+        const streak = streaks[kind];
+        if (streak.value === values[kind]) {
+          streak.seconds += seconds;
+          streak.count += 1;
+        } else {
+          Object.assign(streak, { value: values[kind], seconds, count: 1 });
+        }
+        if (streak.count >= 2 && streak.seconds > streak.limit) {
+          const list = hints.get(phrase.id) ?? [];
+          list.push({ kind, seconds: Math.round(streak.seconds) });
+          hints.set(phrase.id, list);
+          // Empieza a contar de nuevo: el próximo aviso, tras otro tramo igual de largo.
+          Object.assign(streak, { seconds: 0, count: 0 });
+        }
+      }
+    }
+    return hints;
   }
 
   // ───────────────────────────── Datos generales ─────────────────────────────
