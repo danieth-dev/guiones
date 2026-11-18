@@ -1,5 +1,5 @@
 import type { PhraseView, ScriptView } from '../../application';
-import { ENERGIES, ENERGY_LABELS } from '../../domain';
+import { ENERGIES, ENERGY_LABELS, Script, type Section } from '../../domain';
 import { matchShortcut } from '../keyboard/shortcuts';
 import type { DictationPresenter } from '../presenters/dictation-presenter';
 import type { PhrasesPresenter } from '../presenters/phrases-presenter';
@@ -11,6 +11,7 @@ import type { AppState } from '../store/app-state';
 import { PhraseRow } from './components/phrase-row';
 import { TopBar } from './components/top-bar';
 import { autosize, h, replaceChildren } from './dom';
+import { icon } from './icons';
 import { formatClock, formatSeconds } from './labels';
 
 export interface EditorPresenters {
@@ -29,11 +30,39 @@ const ENERGY_FILL: Readonly<Record<PhraseView['energy'], string>> = {
   HIGH: 'bg-warn-fill',
 };
 
-const DURATION_BAR: Readonly<Record<ScriptView['durationStatus'], string>> = {
-  EMPTY: 'bg-line',
-  UNDER: 'bg-primary',
-  IN_RANGE: 'bg-ok',
-  OVER: 'bg-warn-fill',
+/** Cada parte del guion: su nombre, su color y qué debe lograr. */
+const SECTION_HEAD: Readonly<
+  Record<Section, { label: string; color: string; goal: (s: ScriptView) => string; add: string }>
+> = {
+  OPENING: {
+    label: 'Inicio',
+    color: 'text-primary',
+    goal: (s) => `engancha en los primeros ${String(s.format.openingSeconds)} s`,
+    add: 'al inicio',
+  },
+  BODY: {
+    label: 'Desarrollo',
+    color: 'text-text',
+    goal: () => 'cuenta, muestra, sorprende',
+    add: 'al desarrollo',
+  },
+  CLOSING: {
+    label: 'Cierre',
+    color: 'text-ok',
+    goal: () => 'qué quieres que hagan',
+    add: 'al cierre',
+  },
+};
+
+const TIP_KEY = 'guiones.tip-oculto';
+
+/** Recuerda en este navegador que el consejo se cerró (si el almacenamiento falla, vuelve a salir). */
+const tipHidden = (): boolean => {
+  try {
+    return localStorage.getItem(TIP_KEY) === '1';
+  } catch {
+    return false;
+  }
 };
 
 /**
@@ -46,11 +75,10 @@ export class EditorView {
   private readonly topBar: TopBar;
   private readonly heading = h('h1', { class: 'sr-only' });
   private readonly title: HTMLTextAreaElement;
-  private readonly duration = h('div', {
-    class: 'mt-3.5 flex items-center gap-3 text-[13px] text-text',
-  });
-  private readonly rhythm = h('div', { class: 'mt-2' });
+  private readonly duration = h('div', { class: 'mt-4 space-y-2' });
   private readonly list = h('div', { attrs: { role: 'list' } });
+  /** Títulos de parte y botones "Agregar frase", reutilizados por posición. */
+  private readonly heads = new Map<string, { el: HTMLElement; add: HTMLButtonElement }>();
   private readonly rows = new Map<string, PhraseRow>();
   private script: ScriptView | null = null;
   private lastFocusNonce = 0;
@@ -60,8 +88,13 @@ export class EditorView {
     this.topBar = new TopBar(scripts, () => void presenters.teleprompter.open());
     this.title = h('textarea', {
       class:
-        'block w-full resize-none overflow-hidden bg-transparent text-[28px] leading-tight font-bold tracking-tight text-text caret-primary placeholder:text-muted focus:outline-none sm:text-[32px]',
-      attrs: { rows: 1, maxlength: 120, 'aria-label': 'Título del guion' },
+        'block w-full resize-none overflow-hidden bg-transparent text-[28px] leading-tight font-bold tracking-tight text-text caret-primary placeholder:text-muted/70 focus:outline-none sm:text-[34px]',
+      attrs: {
+        rows: 1,
+        maxlength: 120,
+        'aria-label': 'Título del guion',
+        placeholder: 'Ponle un título…',
+      },
       on: {
         input: () => {
           autosize(this.title);
@@ -106,25 +139,37 @@ export class EditorView {
         this.heading,
         this.title,
         this.duration,
-        this.rhythm,
-        h(
-          'p',
-          { class: 'mt-5 rounded-control bg-surface px-3.5 py-3 text-[13px] text-text' },
-          'Escribe una ',
-          h('strong', { class: 'font-semibold', text: 'frase' }),
-          ' por línea: lo que dices de un tirón, como se lo contarías a un amigo. Al escribir en ella eliges el plano y la energía, y puedes grabarte diciéndola.',
-        ),
-        h('div', { class: 'mt-5 border-t border-line' }, this.list),
+        this.tip(),
+        h('div', { class: 'mt-7' }, this.list),
+      ),
+      // En el celular, lo que más se usa queda al alcance del pulgar.
+      h(
+        'nav',
+        {
+          class:
+            'fixed inset-x-0 bottom-0 z-20 flex gap-2.5 border-t border-line bg-surface-raised/95 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden',
+          attrs: { 'aria-label': 'Acciones del guion' },
+        },
         h(
           'button',
           {
             class:
-              'mt-3 rounded-md py-1.5 text-[15px] text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary sm:ml-[72px]',
+              'h-12 flex-1 rounded-xl bg-surface text-[15px] font-semibold text-primary focus-visible:outline-2 focus-visible:outline-primary',
             attrs: { type: 'button' },
             on: { click: () => void phrases.add() },
           },
-          '+ Agregar frase ',
-          h('span', { class: 'text-xs text-muted', text: '(Ctrl+Enter)' }),
+          '+ Frase',
+        ),
+        h(
+          'button',
+          {
+            class:
+              'flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+            attrs: { type: 'button' },
+            on: { click: () => void presenters.teleprompter.open() },
+          },
+          icon('play', 'size-3'),
+          'Ensayar',
         ),
       ),
     );
@@ -142,13 +187,13 @@ export class EditorView {
     this.topBar.render(state);
     this.heading.textContent = script.title;
     if (document.activeElement !== this.title) {
-      this.title.value = script.title;
+      // Sin título propio se ve la pista "Ponle un título…" en vez de un título falso.
+      this.title.value = script.title === Script.DEFAULT_TITLE ? '' : script.title;
       queueMicrotask(() => {
         autosize(this.title);
       });
     }
     this.renderDuration(script);
-    this.renderRhythm(script);
     this.renderPhrases(state, script);
     if (state.focus && state.focus.nonce !== this.lastFocusNonce) {
       this.lastFocusNonce = state.focus.nonce;
@@ -156,113 +201,206 @@ export class EditorView {
     }
   }
 
-  /**
-   * Barra de ritmo: un tramo por frase, de ancho según lo que dura y de color
-   * según su energía. Un guion plano se ve como una fila de bloques iguales.
-   */
-  private renderRhythm(script: ScriptView): void {
-    const spoken = script.phrases.filter((p) => p.seconds > 0);
-    this.rhythm.hidden = spoken.length < 2;
-    if (this.rhythm.hidden) return;
-    const label = (p: PhraseView): string =>
-      `${p.section === 'BODY' ? String(p.order) : p.sectionLabel}: ${formatSeconds(p.seconds)}, energía ${p.energyLabel.toLowerCase()}`;
-    replaceChildren(
-      this.rhythm,
+  /** Consejo de una línea; se cierra y no vuelve a salir en este navegador. */
+  private tip(): HTMLElement {
+    const el = h(
+      'p',
+      {
+        class:
+          'mt-5 flex items-center gap-2.5 rounded-[10px] bg-surface py-2 pr-2 pl-3.5 text-[13px] text-text',
+        attrs: { hidden: tipHidden() },
+      },
       h(
-        'div',
+        'span',
+        { class: 'flex-1' },
+        'Una ',
+        h('strong', { class: 'font-semibold', text: 'frase' }),
+        ' es lo que dices de un tirón. Toca una para elegir su plano y energía o grabarte.',
+      ),
+      h(
+        'button',
         {
-          class: 'flex h-2 gap-0.5',
-          attrs: {
-            role: 'img',
-            'aria-label': `Ritmo del guion. ${spoken.map(label).join('; ')}.`,
+          class:
+            'grid size-8 shrink-0 place-items-center rounded-md text-muted transition hover:bg-surface-raised hover:text-text focus-visible:outline-2 focus-visible:outline-primary',
+          attrs: { type: 'button', 'aria-label': 'Ocultar este consejo' },
+          on: {
+            click: () => {
+              el.hidden = true;
+              try {
+                localStorage.setItem(TIP_KEY, '1');
+              } catch {
+                // Sin almacenamiento: solo se oculta hasta recargar.
+              }
+            },
           },
         },
-        ...spoken.map((p) =>
-          h('div', {
-            class: `min-w-1 rounded-full ${ENERGY_FILL[p.energy]}`,
-            attrs: { style: `flex-grow:${String(p.seconds)}`, title: label(p) },
-          }),
-        ),
-      ),
-      h(
-        'p',
-        {
-          class: 'mt-1.5 flex items-center gap-3 text-xs text-muted',
-          attrs: { 'aria-hidden': 'true' },
-        },
-        'Ritmo',
-        ...ENERGIES.map((energy) =>
-          h(
-            'span',
-            { class: 'inline-flex items-center gap-1' },
-            h('span', { class: `size-2 rounded-full ${ENERGY_FILL[energy]}` }),
-            ENERGY_LABELS[energy].toLowerCase(),
-          ),
-        ),
+        icon('close', 'size-3.5'),
       ),
     );
+    return el;
   }
 
-  /** Barra de duración: cuánto llevas frente al máximo del formato. */
+  /**
+   * Una sola barra para duración y ritmo: cada tramo es una frase, de ancho
+   * según lo que dura (sobre el máximo del formato) y de color según su
+   * energía. La marca fina es la duración mínima.
+   */
   private renderDuration(script: ScriptView): void {
     const { estimatedSec, durationStatus, format } = script;
-    const pct = Math.min(100, (estimatedSec / format.maxSeconds) * 100);
+    const spoken = script.phrases.filter((p) => p.seconds > 0);
+    // Si se pasa del máximo, los tramos se reparten la barra entera.
+    const scale = Math.max(format.maxSeconds, estimatedSec);
+    const label = (p: PhraseView): string =>
+      `Frase ${String(p.order)}: ${formatSeconds(p.seconds)}, energía ${p.energyLabel.toLowerCase()}`;
     const hint =
       durationStatus === 'OVER'
-        ? ' · Te pasaste: recorta o divide en dos videos'
+        ? 'Te pasaste: recorta o divide en dos videos'
         : durationStatus === 'UNDER'
-          ? ` · Aún corto (mínimo ${formatClock(format.minSeconds)})`
-          : '';
+          ? `Aún corto (mínimo ${formatClock(format.minSeconds)})`
+          : durationStatus === 'EMPTY'
+            ? 'Empieza por el inicio'
+            : '';
     replaceChildren(
       this.duration,
       h(
         'div',
         {
-          class: 'h-1.5 flex-1 overflow-hidden rounded-full bg-surface',
+          class: 'relative flex h-2 gap-0.5 overflow-hidden rounded-full bg-surface',
           attrs: {
             role: 'meter',
-            'aria-label': 'Duración estimada',
+            'aria-label': `Duración estimada y ritmo. ${spoken.map(label).join('; ')}`,
             'aria-valuemin': 0,
             'aria-valuemax': format.maxSeconds,
             'aria-valuenow': Math.round(estimatedSec),
           },
         },
-        h('div', {
-          class: `h-full rounded-full ${DURATION_BAR[durationStatus]}`,
-          attrs: { style: `width:${String(pct)}%` },
+        ...spoken.map((p) =>
+          h('span', {
+            class: `shrink-0 ${ENERGY_FILL[p.energy]}`,
+            attrs: { style: `width:${String((p.seconds / scale) * 100)}%`, title: label(p) },
+          }),
+        ),
+        h('span', {
+          class: 'absolute inset-y-0 w-px bg-muted/60',
+          attrs: {
+            style: `left:${String((format.minSeconds / scale) * 100)}%`,
+            'aria-hidden': 'true',
+          },
         }),
       ),
       h(
-        'span',
-        { class: 'tabular-nums' },
-        h('strong', { class: 'font-semibold', text: formatClock(estimatedSec) }),
-        ` de ${format.durationLabel}`,
-        h('span', { class: durationStatus === 'OVER' ? 'text-warn' : 'text-muted', text: hint }),
+        'p',
+        { class: 'flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted' },
+        h(
+          'span',
+          { class: 'tabular-nums' },
+          h('strong', { class: 'font-semibold text-text', text: formatClock(estimatedSec) }),
+          ` de ${format.durationLabel}`,
+        ),
+        hint
+          ? h('span', { class: durationStatus === 'OVER' ? 'text-warn' : '', text: hint })
+          : null,
+        spoken.length > 0
+          ? h(
+              'span',
+              { class: 'ml-auto flex items-center gap-3', attrs: { 'aria-hidden': 'true' } },
+              ...ENERGIES.map((energy) =>
+                h(
+                  'span',
+                  { class: 'inline-flex items-center gap-1' },
+                  h('span', { class: `size-2 rounded-full ${ENERGY_FILL[energy]}` }),
+                  ENERGY_LABELS[energy].toLowerCase(),
+                ),
+              ),
+            )
+          : null,
       ),
     );
   }
 
+  /**
+   * Las frases en su orden real, con un título cada vez que cambia la parte
+   * (inicio, desarrollo, cierre) y un "Agregar frase" al final de cada tramo.
+   * Las filas se reutilizan y solo se mueven si cambió el orden, para no
+   * perder el foco mientras se escribe.
+   */
   private renderPhrases(state: AppState, script: ScriptView): void {
-    const seen = new Set<string>();
-    script.phrases.forEach((phrase, index) => {
-      seen.add(phrase.id);
-      let row = this.rows.get(phrase.id);
-      if (!row) {
-        row = new PhraseRow(phrase, this.rowHandlers);
-        this.rows.set(phrase.id, row);
-      }
-      row.update(phrase, { voice: state.voice, dictation: state.dictation });
-      // Reubica solo si cambió de posición (moverla quitaría el foco).
-      if (this.list.children[index] !== row.el) {
-        this.list.insertBefore(row.el, this.list.children[index] ?? null);
-      }
-    });
-    for (const [id, row] of this.rows) {
-      if (!seen.has(id)) {
-        row.el.remove();
-        this.rows.delete(id);
-      }
+    const runs: PhraseView[][] = [];
+    for (const phrase of script.phrases) {
+      const run = runs.at(-1);
+      if (run?.[0]?.section === phrase.section) run.push(phrase);
+      else runs.push([phrase]);
     }
+    const desired: HTMLElement[] = [];
+    const seen = new Set<string>();
+    runs.forEach((run, index) => {
+      const head = this.sectionHead(String(index), script, run);
+      desired.push(head.el);
+      for (const phrase of run) {
+        seen.add(phrase.id);
+        let row = this.rows.get(phrase.id);
+        if (!row) {
+          row = new PhraseRow(phrase, this.rowHandlers);
+          this.rows.set(phrase.id, row);
+        }
+        row.update(phrase, { voice: state.voice, dictation: state.dictation });
+        desired.push(row.el);
+      }
+      desired.push(head.add);
+    });
+    // Guion sin frases: solo el botón para empezar.
+    if (runs.length === 0) desired.push(this.sectionHead('vacio', script, []).add);
+
+    desired.forEach((el, i) => {
+      if (this.list.children[i] !== el) this.list.insertBefore(el, this.list.children[i] ?? null);
+    });
+    while (this.list.children.length > desired.length) this.list.lastElementChild?.remove();
+    for (const id of this.rows.keys()) if (!seen.has(id)) this.rows.delete(id);
+  }
+
+  /** Título de un tramo de frases de la misma parte y su botón para agregar otra. */
+  private sectionHead(
+    key: string,
+    script: ScriptView,
+    run: readonly PhraseView[],
+  ): { el: HTMLElement; add: HTMLButtonElement } {
+    let head = this.heads.get(key);
+    if (!head) {
+      head = {
+        el: h('h2', { class: 'mt-8 mb-1 flex items-baseline gap-2.5 first:mt-0' }),
+        add: h('button', {
+          class:
+            'mt-1.5 flex items-center gap-2 rounded-md py-1.5 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary sm:ml-14',
+          attrs: { type: 'button' },
+        }),
+      };
+      this.heads.set(key, head);
+    }
+    const last = run.at(-1);
+    const section = last?.section ?? 'BODY';
+    const meta = SECTION_HEAD[section];
+    const seconds = run.reduce((sum, p) => sum + p.seconds, 0);
+    replaceChildren(
+      head.el,
+      h('span', {
+        class: `text-[13px] font-semibold tracking-wide uppercase ${meta.color}`,
+        text: meta.label,
+      }),
+      h('span', { class: 'text-[13px] text-muted', text: meta.goal(script) }),
+      seconds > 0
+        ? h('span', {
+            class: 'ml-auto text-[13px] font-medium text-muted tabular-nums',
+            text: formatClock(seconds),
+          })
+        : null,
+    );
+    replaceChildren(
+      head.add,
+      last ? `+ Agregar frase ${meta.add}` : '+ Agregar frase',
+      h('span', { class: 'hidden text-xs font-normal text-muted sm:inline', text: 'Ctrl+Enter' }),
+    );
+    head.add.onclick = () => void this.presenters.phrases.add(last?.id, last?.section);
+    return head;
   }
 
   /**
@@ -276,7 +414,9 @@ export class EditorView {
     start.preventDefault();
     const handle = start.currentTarget as HTMLElement;
     handle.setPointerCapture(start.pointerId);
-    const others = [...this.list.children].filter((el) => el !== dragged.el) as HTMLElement[];
+    const others = (this.script?.phrases ?? [])
+      .map((p) => this.rows.get(p.id)?.el)
+      .filter((el): el is HTMLElement => el !== undefined && el !== dragged.el);
     const above = 'shadow-[inset_0_2px_0_var(--primary)]';
     const below = 'shadow-[inset_0_-2px_0_var(--primary)]';
     let to = from;

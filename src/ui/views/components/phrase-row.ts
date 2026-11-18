@@ -32,13 +32,6 @@ export interface PhraseRowHandlers extends VoiceHandlers {
   onDictate(phraseId: string): void;
 }
 
-/** Color del margen: el inicio y el cierre se distinguen; el desarrollo va numerado. */
-const GUTTER: Readonly<Record<Section, string>> = {
-  OPENING: 'text-xs font-semibold text-primary',
-  BODY: 'text-[13px] text-muted tabular-nums',
-  CLOSING: 'text-xs font-semibold text-ok',
-};
-
 const menuItem = (label: string, onClick: () => void, extra = ''): HTMLButtonElement =>
   h('button', {
     class: `block w-full rounded-md px-3 py-2 text-left text-sm transition hover:bg-surface disabled:opacity-40 ${extra}`,
@@ -55,7 +48,8 @@ const menuItem = (label: string, onClick: () => void, extra = ''): HTMLButtonEle
 export class PhraseRow {
   readonly el: HTMLElement;
   private phrase: PhraseView;
-  private readonly gutter = h('span', { class: 'pt-1' });
+  /** Número de la frase; la parte (inicio, desarrollo, cierre) la dice el título de arriba. */
+  private readonly gutter = h('span', { class: 'pt-1 text-[13px] text-muted tabular-nums' });
   private readonly text: HTMLTextAreaElement;
   private readonly interim = h('p', { class: 'mt-1 text-lg italic leading-relaxed text-muted' });
   private readonly summary = h('p', { class: 'mt-1 text-xs text-muted group-focus-within:hidden' });
@@ -80,7 +74,7 @@ export class PhraseRow {
     this.phrase = phrase;
     this.text = h('textarea', {
       class:
-        'block w-full resize-none overflow-hidden bg-transparent text-[18px] leading-relaxed text-text placeholder:text-muted placeholder:italic focus:outline-none',
+        'block w-full resize-none overflow-hidden bg-transparent text-[18px] leading-relaxed text-text placeholder:text-muted/80 focus:outline-none',
       attrs: { rows: 1, 'aria-label': 'Lo que dices', spellcheck: true },
       on: {
         input: () => {
@@ -233,7 +227,7 @@ export class PhraseRow {
       'article',
       {
         class:
-          'phrase-row group -ml-4 grid grid-cols-1 gap-x-2 gap-y-0.5 border-b border-line py-3.5 pl-4 transition focus-within:shadow-[inset_3px_0_0_var(--primary)] sm:grid-cols-[64px_minmax(0,1fr)]',
+          'phrase-row group -mx-4 grid grid-cols-1 gap-x-2 gap-y-0.5 rounded-xl border-b border-line px-4 py-3.5 transition focus-within:border-transparent focus-within:bg-primary-soft/40 focus-within:ring-1 focus-within:ring-primary/20 sm:grid-cols-[48px_minmax(0,1fr)]',
         attrs: { 'data-phrase-id': phrase.id, role: 'listitem' },
       },
       h(
@@ -283,12 +277,10 @@ export class PhraseRow {
   ): void {
     this.phrase = phrase;
     this.el.dataset.phraseId = phrase.id;
-    this.gutter.textContent =
-      phrase.section === 'BODY' ? String(phrase.order) : phrase.sectionLabel;
-    this.gutter.className = `pt-1 ${GUTTER[phrase.section]}`;
+    this.gutter.textContent = String(phrase.order);
 
-    this.text.placeholder =
-      phrase.guide || 'Lo que dices de un tirón, como se lo contarías a un amigo…';
+    // Las pistas terminan en "…" para que no se confundan con algo ya escrito.
+    this.text.placeholder = `${phrase.guide || 'Lo que dices de un tirón, como se lo contarías a un amigo'}…`;
     this.text.classList.toggle('text-[20px]', phrase.section === 'OPENING');
     this.text.classList.toggle('font-semibold', phrase.section === 'OPENING');
     syncValue(this.text, phrase.text);
@@ -332,7 +324,9 @@ export class PhraseRow {
     if (phrase.note) details[0] = `${phrase.shotLabel}: ${phrase.note}`;
     replaceChildren(
       this.summary,
-      phrase.text ? details.join(' · ') : '',
+      phrase.text
+        ? details.join(' · ')
+        : `Sin escribir · plano sugerido: ${phrase.shotLabel.toLowerCase()}`,
       phrase.take ? h('span', { class: 'text-ok', text: ' · Grabada' }) : null,
     );
 

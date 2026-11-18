@@ -73,10 +73,11 @@ export class TopBar {
         'summary',
         {
           class:
-            'grid size-9 cursor-pointer list-none place-items-center rounded-lg text-primary transition hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary',
+            'flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-text ring-line transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary sm:px-3.5 sm:ring-1',
           attrs: { 'aria-label': 'Exportar', title: 'Exportar' },
         },
-        icon('download', 'size-[18px]'),
+        icon('download', 'size-[18px] sm:size-4'),
+        h('span', { class: 'hidden sm:inline', text: 'Exportar' }),
       ),
       h(
         'div',
@@ -117,7 +118,7 @@ export class TopBar {
         'button',
         {
           class:
-            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary',
+            'hidden h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary lg:inline-flex',
           attrs: { type: 'button', title: 'Leer el guion en voz alta con teleprompter' },
           on: { click: onRehearse },
         },
@@ -173,7 +174,12 @@ export class TopBar {
       state.saveStatus === 'saving'
         ? statusChip({ label: 'Guardando…', loading: true, variant: 'plain' })
         : state.saveStatus === 'saved'
-          ? statusChip({ label: 'Guardado', variant: 'plain' })
+          ? h(
+              'span',
+              { class: 'inline-flex items-center gap-1.5 text-sm text-ok' },
+              icon('check', 'size-3.5'),
+              'Guardado',
+            )
           : state.saveStatus === 'error'
             ? statusChip({ label: 'Sin guardar', variant: 'danger', icon: 'alert' })
             : null,

@@ -28,6 +28,8 @@ export interface FormatView {
   readonly durationLabel: string;
   readonly minSeconds: number;
   readonly maxSeconds: number;
+  /** El inicio debería llegar al punto en este tiempo. */
+  readonly openingSeconds: number;
 }
 
 export interface PhraseView {
@@ -85,6 +87,7 @@ export const toFormatView = (format: VideoFormat): FormatView => ({
   durationLabel: format.durationLabel,
   minSeconds: format.minSeconds,
   maxSeconds: format.maxSeconds,
+  openingSeconds: format.openingSeconds,
 });
 
 export const toScriptView = (script: Script): ScriptView => {
