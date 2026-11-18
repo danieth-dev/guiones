@@ -22,8 +22,6 @@ export interface CreateScriptInput {
   /** Por defecto, vertical corto. */
   readonly formatId?: string;
   readonly wordsPerMinute?: number;
-  /** Con el esqueleto del formato (inicio, desarrollo, cierre). Por defecto, sí. */
-  readonly withSkeleton?: boolean;
 }
 
 /** Crea un guion nuevo con el esqueleto de su formato, para no empezar en blanco. */
@@ -50,9 +48,7 @@ export class CreateScript implements UseCase<CreateScriptInput, ScriptView> {
         rate: rate.value,
         now: this.clock.now(),
         ...(input.title === undefined ? {} : { title: input.title }),
-        ...((input.withSkeleton ?? true)
-          ? { nextPhraseId: () => phraseId(this.ids.next('fr')) }
-          : {}),
+        nextPhraseId: () => phraseId(this.ids.next('fr')),
       });
       if (!script.ok) return script;
       await this.scripts.save(script.value);
@@ -128,8 +124,9 @@ export class DeleteScript implements UseCase<{ readonly scriptId: string }, void
     return this.workspace.guard(async () => {
       const id = scriptId(input.scriptId);
       if (!(await this.scripts.findById(id))) return err(scriptNotFound());
-      await this.scripts.delete(id);
+      // Audios primero: si fallan, el guion sigue en la lista y se puede reintentar.
       await this.audio.deleteByOwner(id);
+      await this.scripts.delete(id);
       return ok(undefined);
     });
   }

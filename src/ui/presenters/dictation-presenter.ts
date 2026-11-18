@@ -22,6 +22,8 @@ const join = (...parts: readonly string[]): string =>
  */
 export class DictationPresenter {
   private session: SpeechSession | null = null;
+  /** Sube con cada stop(): un start() que esperaba y quedó atrás no abre otra sesión. */
+  private generation = 0;
 
   constructor(
     private readonly store: Store<AppState>,
@@ -45,6 +47,7 @@ export class DictationPresenter {
   }
 
   stop(): void {
+    this.generation += 1;
     this.session?.stop();
     this.session = null;
     this.patch({ phraseId: null, interim: '' });
@@ -60,7 +63,9 @@ export class DictationPresenter {
       this.store.update({ notice: errorNotice('El dictado necesita Chrome o Edge con conexión.') });
       return;
     }
+    const generation = this.generation;
     await this.sinks.prepare(phraseId);
+    if (generation !== this.generation) return;
     let text = this.sinks.currentText(phraseId);
     this.patch({ phraseId, interim: '' });
 

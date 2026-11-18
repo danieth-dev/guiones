@@ -28,10 +28,9 @@ describe('Guiones', () => {
         title: 'Review',
         formatId: 'LONG_HORIZONTAL',
         wordsPerMinute: 150,
-        withSkeleton: false,
       }),
     );
-    expect(long).toMatchObject({ title: 'Review', wordsPerMinute: 150, phrases: [] });
+    expect(long).toMatchObject({ title: 'Review', wordsPerMinute: 150 });
     expect(errorCode(await app.createScript.execute({ formatId: 'PODCAST' }))).toBe('NOT_FOUND');
     expect(errorCode(await app.createScript.execute({ wordsPerMinute: 20 }))).toBe('INVALID_VALUE');
   });
@@ -77,6 +76,14 @@ describe('Guiones', () => {
     );
     const take = recorded.phrases[0]!.take!;
     expect(value(await app.getTake.execute({ audioId: take }))).not.toBeNull();
+    // Si fallan los audios, el guion sigue ahí: no queda un borrado a medias.
+    const deleteByOwner = audio.deleteByOwner.bind(audio);
+    audio.deleteByOwner = () => Promise.reject(new Error('disco lleno'));
+    expect(errorCode(await app.deleteScript.execute({ scriptId: first.id }))).toBe(
+      'STORAGE_FAILURE',
+    );
+    expect(value(await app.getScript.execute({ scriptId: first.id })).id).toBe(first.id);
+    audio.deleteByOwner = deleteByOwner;
     value(await app.deleteScript.execute({ scriptId: first.id }));
     expect(await audio.load(audioId(take))).toBeNull();
     expect(errorCode(await app.getScript.execute({ scriptId: first.id }))).toBe('NOT_FOUND');
@@ -185,14 +192,15 @@ describe('Decirlo en voz alta', () => {
 
   it('el ensayo compara tiempos y mide el ritmo real', async () => {
     const { app } = createHarness();
-    const script = value(await app.createScript.execute({ withSkeleton: false }));
-    const withPhrase = value(
-      await app.addPhrase.execute({
+    const script = value(await app.createScript.execute({}));
+    const id = script.phrases[0]!.id;
+    value(
+      await app.editPhrase.execute({
         scriptId: script.id,
+        phraseId: id,
         text: 'Uno dos tres cuatro cinco seis siete ocho nueve diez once doce',
       }),
     );
-    const id = withPhrase.phrases[0]!.id;
     const report = value(
       await app.recordPracticeSession.execute({
         scriptId: script.id,

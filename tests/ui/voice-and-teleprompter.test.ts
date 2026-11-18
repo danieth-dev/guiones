@@ -19,10 +19,12 @@ class FakeSpeech implements SpeechToText {
   available = true;
   handlers: SpeechHandlers | null = null;
   stopped = 0;
+  listens = 0;
   isAvailable(): boolean {
     return this.available;
   }
   listen(handlers: SpeechHandlers) {
+    this.listens += 1;
     this.handlers = handlers;
     return {
       stop: () => {
@@ -225,6 +227,13 @@ describe('DictationPresenter', () => {
     expect(t.store.get().notice?.message).toBe('Sin conexión');
     t.speech.handlers!.onEnd();
     expect(t.store.get().dictation.phraseId).toBeNull();
+  });
+
+  it('un doble clic en dictar abre una sola sesión', async () => {
+    const t = await setup();
+    await Promise.all([t.dictation.toggle(t.id), t.dictation.toggle(t.id)]);
+    expect(t.speech.listens).toBe(1);
+    expect(t.store.get().dictation.phraseId).toBe(t.id);
   });
 
   it('escribir en la frase dictada corta el dictado; en otra frase, no', async () => {
