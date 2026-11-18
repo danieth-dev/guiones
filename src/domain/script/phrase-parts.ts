@@ -39,14 +39,6 @@ export const SHOT_HINTS: Readonly<Record<Shot, string>> = {
   TEXT: 'Una frase escrita grande: para remarcar una idea.',
 };
 
-/** Formas probadas de empezar un video, con un ejemplo para inspirarse. */
-export const OPENING_IDEAS: readonly { readonly label: string; readonly example: string }[] = [
-  { label: 'Una pregunta', example: '¿Por qué tus videos no pasan de 200 vistas?' },
-  { label: 'El resultado primero', example: 'Gané mil seguidores en una semana con esto.' },
-  { label: 'El error común', example: 'Casi todos empiezan sus videos así, y es un error.' },
-  { label: 'Lo que te pasó', example: 'Ayer me pasó algo que no te vas a creer.' },
-];
-
 export const isShot = (value: string): value is Shot =>
   (SHOTS as readonly string[]).includes(value);
 
