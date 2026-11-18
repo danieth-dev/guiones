@@ -19,10 +19,12 @@ export class MediaRecorderAdapter implements AudioRecorder {
   }
 
   async start(): Promise<void> {
-    this.cancel();
-    this.stream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
     });
+    // Después de esperar: si otro start() ganó mientras tanto, se libera su micrófono.
+    this.cancel();
+    this.stream = stream;
     const mimeType = MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type));
     this.recorder = new MediaRecorder(this.stream, mimeType ? { mimeType } : {});
     this.chunks = [];

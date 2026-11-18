@@ -50,6 +50,11 @@ export class DictationPresenter {
     this.patch({ phraseId: null, interim: '' });
   }
 
+  /** Escribir a mano en la frase dictada corta el dictado: si no, lo dictado pisaría lo escrito. */
+  typed(phraseId: string): void {
+    if (this.dictation().phraseId === phraseId) this.stop();
+  }
+
   private async start(phraseId: string): Promise<void> {
     if (!this.dictation().available) {
       this.store.update({ notice: errorNotice('El dictado necesita Chrome o Edge con conexión.') });

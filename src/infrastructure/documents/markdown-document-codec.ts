@@ -167,7 +167,9 @@ export class MarkdownDocumentCodec implements DocumentCodec {
           `[energía: ${ENERGY_LABELS[phrase.energy as keyof typeof ENERGY_LABELS].toLowerCase()}]`,
         );
       }
-      out.push(`- ${[...tokens, phrase.text].filter(Boolean).join(' ')}`.trimEnd());
+      // `\[` al inicio: el texto no es una etiqueta (p. ej. "[risas] y entonces…").
+      const text = phrase.text.startsWith('[') ? `\\${phrase.text}` : phrase.text;
+      out.push(`- ${[...tokens, text].filter(Boolean).join(' ')}`.trimEnd());
       if (phrase.note) out.push(`  > ${phrase.note}`);
     }
     return `${out.join('\n').trimEnd()}\n`;
@@ -250,7 +252,7 @@ export class MarkdownDocumentCodec implements DocumentCodec {
       section,
       shot: null,
       energy: 'NORMAL',
-      text: rest ? [rest] : [],
+      text: rest ? [rest.replace(/^\\\[/u, '[')] : [],
       note: [],
     };
     for (const token of tokens) {

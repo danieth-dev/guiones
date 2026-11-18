@@ -68,6 +68,7 @@ export class EditorView {
     });
     this.rowHandlers = {
       onText: (id, text) => {
+        dictation.typed(id);
         phrases.editText(id, text);
       },
       onNote: (id, note) => {

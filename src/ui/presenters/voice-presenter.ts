@@ -100,6 +100,7 @@ export class VoicePresenter {
     }
     this.startedAt = Date.now();
     this.patch({ recordingId: phraseId, elapsedMs: 0, playingId: null });
+    this.clearTimers(); // un doble clic arranca dos veces: que no quede un temporizador suelto
     this.tick = setInterval(() => {
       this.patch({ elapsedMs: Date.now() - this.startedAt });
     }, this.options.tickMs);

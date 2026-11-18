@@ -12,6 +12,7 @@ const sample: ScriptDocument = {
     { section: 'OPENING', shot: 'CLOSE_UP', energy: 'HIGH', note: '', text: 'Grabé 30 videos.' },
     { section: 'BODY', shot: null, energy: 'NORMAL', note: '', text: 'Cambié la cámara.' },
     { section: 'BODY', shot: 'BROLL', energy: 'CALM', note: 'El contador', text: 'Nada.' },
+    { section: 'BODY', shot: null, energy: 'NORMAL', note: '', text: '[risas] Y entonces.' },
     { section: 'CLOSING', shot: null, energy: 'NORMAL', note: '', text: '' },
   ],
 };
@@ -35,6 +36,8 @@ describe('Markdown de guion', () => {
     expect(text).toContain('formato: vertical corto');
     expect(text).toContain('## Inicio\n\n- [primer plano] [energía: alta] Grabé 30 videos.');
     expect(text).toContain('- [b-roll] [energía: calma] Nada.\n  > El contador');
+    // Un texto que empieza con corchetes no debe leerse como etiqueta.
+    expect(text).toContain('- \\[risas] Y entonces.');
     expect(value(codec.parseScript(text))).toEqual(sample);
   });
 

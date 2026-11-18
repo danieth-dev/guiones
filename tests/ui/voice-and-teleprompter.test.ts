@@ -188,6 +188,14 @@ describe('VoicePresenter', () => {
     expect(t.store.get().notice?.message).toContain('No se encontró la grabación');
   });
 
+  it('un doble clic en grabar no deja un temporizador suelto', async () => {
+    const t = await setup();
+    await Promise.all([t.voice.toggleRecording(t.id), t.voice.toggleRecording(t.id)]);
+    t.voice.cancel();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(t.store.get().voice.elapsedMs).toBe(0);
+  });
+
   it('sin soporte de grabación avisa', async () => {
     const t = await setup();
     t.store.update({ voice: { ...t.store.get().voice, supported: false } });
@@ -217,6 +225,16 @@ describe('DictationPresenter', () => {
     expect(t.store.get().notice?.message).toBe('Sin conexión');
     t.speech.handlers!.onEnd();
     expect(t.store.get().dictation.phraseId).toBeNull();
+  });
+
+  it('escribir en la frase dictada corta el dictado; en otra frase, no', async () => {
+    const t = await setup();
+    await t.dictation.toggle(t.id);
+    t.dictation.typed(t.current().phrases[0]!.id);
+    expect(t.store.get().dictation.phraseId).toBe(t.id);
+    t.dictation.typed(t.id);
+    expect(t.store.get().dictation.phraseId).toBeNull();
+    expect(t.speech.stopped).toBe(1);
   });
 
   it('alternar en la misma frase la detiene; sin disponibilidad avisa', async () => {
