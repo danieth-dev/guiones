@@ -1,8 +1,11 @@
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/bricolage-grotesque';
 @import 'tailwindcss';
 @import './tokens.css';
 
 @theme inline {
+  /* Solo el logo: va empaquetada para que se vea igual sin conexión. */
+  --font-logo: 'Bricolage Grotesque Variable', var(--font-sans);
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', ui-sans-serif, system-ui,
     sans-serif;

@@ -9,7 +9,8 @@ import { formatClock } from './labels';
 /** Panel izquierdo: nuevo guion, tus guiones y ajustes. */
 export class SidebarView {
   readonly el: HTMLElement;
-  private readonly list = h('ul', { class: 'space-y-0.5' });
+  private readonly list = h('ul', { class: 'space-y-1' });
+  private readonly count = h('span', { class: 'font-medium' });
 
   constructor(
     private readonly presenter: ScriptsPresenter,
@@ -24,12 +25,14 @@ export class SidebarView {
       },
       h(
         'div',
-        { class: 'flex h-14 shrink-0 items-center gap-2.5 border-b border-line px-5' },
-        h('span', { class: 'text-[17px] font-semibold tracking-tight', text: 'Guiones' }),
-        h('span', { class: 'flex-1' }),
+        { class: 'relative flex h-[72px] shrink-0 items-center justify-center px-6' },
+        h('span', {
+          class: 'font-logo text-[27px] font-bold tracking-[-0.03em]',
+          text: 'Guiones',
+        }),
         h(
           'span',
-          { class: 'lg:hidden' },
+          { class: 'absolute top-1/2 right-3 -translate-y-1/2 lg:hidden' },
           iconButton({
             icon: 'close',
             label: 'Cerrar menú',
@@ -41,12 +44,12 @@ export class SidebarView {
       ),
       h(
         'div',
-        { class: 'flex items-center gap-1 px-3 pt-4' },
+        { class: 'flex flex-col gap-2 px-5 pt-2' },
         h(
           'button',
           {
             class:
-              'flex h-10 flex-1 items-center gap-2 rounded-control px-3 text-sm font-semibold text-primary ring-1 ring-line transition hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-primary',
+              'flex h-11 items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-[15px] font-semibold text-white transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
             attrs: { type: 'button' },
             on: {
               click: () => {
@@ -54,32 +57,37 @@ export class SidebarView {
               },
             },
           },
-          icon('plus', 'size-4'),
+          icon('plus', 'size-[18px]'),
           'Nuevo guion',
         ),
         fileButton({
           label: 'Importar guion (.md)',
           accept: '.md,text/markdown,text/plain',
           className:
-            'grid size-10 place-items-center rounded-control text-muted transition hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-primary',
-          content: [icon('share', 'size-4')],
+            'flex h-10 w-full items-center justify-center gap-2 rounded-[10px] text-sm text-muted transition hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-primary',
+          content: [icon('share', 'size-4'), 'Importar guion (.md)'],
           onText: (text) => void presenter.importDocument(text),
         }),
       ),
       h(
         'section',
-        { class: 'flex min-h-0 flex-1 flex-col gap-1 px-3 pt-5' },
-        h('h2', { class: 'px-2.5 text-xs font-semibold text-muted', text: 'Tus guiones' }),
+        { class: 'flex min-h-0 flex-1 flex-col gap-2 px-5 pt-7' },
+        h(
+          'h2',
+          { class: 'flex justify-between px-3 text-[13px] font-semibold text-muted' },
+          'Tus guiones',
+          this.count,
+        ),
         this.list,
       ),
       h(
         'div',
-        { class: 'px-3 py-2' },
+        { class: 'px-5 pt-4 pb-5' },
         h(
           'button',
           {
             class:
-              'flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[15px] text-text transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary',
+              'flex h-11 w-full items-center gap-3 rounded-[10px] px-3 text-left text-[15px] text-text transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary',
             attrs: { type: 'button' },
             on: { click: onOpenSettings },
           },
@@ -92,6 +100,7 @@ export class SidebarView {
 
   render(state: AppState): void {
     this.el.classList.toggle('-translate-x-full', !state.navOpen);
+    this.count.textContent = String(state.scripts.length);
     replaceChildren(
       this.list,
       ...state.scripts.map((script) => {
@@ -102,16 +111,16 @@ export class SidebarView {
           h(
             'button',
             {
-              class: `w-full rounded-lg px-2.5 py-2 pr-10 text-left transition ${active ? 'bg-primary-soft text-primary' : 'hover:bg-surface'}`,
+              class: `flex w-full flex-col gap-1 rounded-xl p-3 pr-11 text-left transition ${active ? 'bg-primary-soft text-primary' : 'hover:bg-surface'}`,
               attrs: { type: 'button', 'aria-current': active ? 'true' : null },
               on: { click: () => void this.presenter.open(script.id) },
             },
             h('span', {
-              class: `block truncate text-sm ${active ? 'font-semibold' : ''}`,
+              class: `block truncate text-[15px] ${active ? 'font-semibold' : 'font-medium'}`,
               text: script.title,
             }),
             h('span', {
-              class: 'block truncate text-xs text-muted',
+              class: 'block truncate text-[13px] text-muted',
               text: `${script.formatLabel} · ${formatClock(script.estimatedSec)}`,
             }),
           ),

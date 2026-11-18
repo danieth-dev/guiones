@@ -84,7 +84,7 @@ export class AppShell {
       root,
       h(
         'div',
-        { class: 'min-h-dvh bg-bg text-text lg:grid lg:grid-cols-[240px_minmax(0,1fr)]' },
+        { class: 'min-h-dvh bg-bg text-text lg:grid lg:grid-cols-[280px_minmax(0,1fr)]' },
         mobileBar,
         this.sidebar.el,
         this.editor.el,
