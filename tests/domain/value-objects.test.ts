@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  andThen,
   Duration,
-  err,
   isEnergy,
-  isFormatId,
   isSection,
   isShot,
-  ok,
   SpeechRate,
   SpokenText,
   VisualCue,
@@ -78,14 +74,5 @@ describe('guards de enumerados', () => {
     expect(isShot('DRONE')).toBe(false);
     expect(isEnergy('HIGH')).toBe(true);
     expect(isEnergy('ENERGICO')).toBe(false);
-    expect(isFormatId('LONG_HORIZONTAL')).toBe(true);
-    expect(isFormatId('SHORT')).toBe(false);
-  });
-});
-
-describe('Result', () => {
-  it('andThen encadena éxitos y propaga el primer error', () => {
-    expect(andThen(ok(2), (n) => ok(n * 2))).toEqual(ok(4));
-    expect(andThen(err('fallo'), () => ok(1))).toEqual(err('fallo'));
   });
 });

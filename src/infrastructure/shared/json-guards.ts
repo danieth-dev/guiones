@@ -35,12 +35,6 @@ export const asNumber = (value: unknown, path: string): number => {
   return value;
 };
 
-export const asBoolean = (value: unknown, path: string): boolean => {
-  if (typeof value !== 'boolean')
-    throw new InvalidDataError(`${path}: se esperaba verdadero/falso.`);
-  return value;
-};
-
 export const asEnum = <T extends string>(
   value: unknown,
   guard: (v: string) => v is T,

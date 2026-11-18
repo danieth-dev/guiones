@@ -10,9 +10,6 @@ export const STORES = {
   audio: 'audio',
 } as const;
 
-/** Almacén del Códice de Voz Propia (v2), retirado en v3 al simplificar la app. */
-const LEGACY_CODEX_STORE = 'codex';
-
 export const AUDIO_BY_OWNER = 'byOwner';
 
 /** Cambios de estructura por versión de la base (no confundir con la versión del registro). */
@@ -21,10 +18,6 @@ const upgrade = (db: IDBDatabase, oldVersion: number): void => {
     db.createObjectStore(STORES.scripts, { keyPath: 'id' });
     const audio = db.createObjectStore(STORES.audio, { keyPath: 'id' });
     audio.createIndex(AUDIO_BY_OWNER, 'ownerId', { unique: false });
-  }
-  if (oldVersion >= 2 && db.objectStoreNames.contains(LEGACY_CODEX_STORE)) {
-    // v3: la app se simplificó y el Códice ya no existe.
-    db.deleteObjectStore(LEGACY_CODEX_STORE);
   }
 };
 

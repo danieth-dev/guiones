@@ -3,7 +3,6 @@
  * duraciones y sugerencias se recalculan al leer.
  *
  * v5: guion simple (formato de video + frases con plano y energía).
- * v1-v4: estrategias, hooks, criterio y Gimnasio de voz. Ver `migrations.ts`.
  */
 export const CURRENT_SCHEMA_VERSION = 5;
 

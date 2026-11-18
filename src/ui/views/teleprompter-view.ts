@@ -3,13 +3,7 @@ import type { TeleprompterPresenter } from '../presenters/teleprompter-presenter
 import type { AppState, PrompterUnit, TeleprompterState } from '../store/app-state';
 import { h, replaceChildren } from './dom';
 import { icon } from './icons';
-
-const clock = (ms: number): string => {
-  const total = Math.floor(ms / 1000);
-  return `${String(Math.floor(total / 60))}:${String(total % 60).padStart(2, '0')}`;
-};
-
-const seconds = (s: number): string => `${s.toLocaleString('es', { maximumFractionDigits: 1 })} s`;
+import { formatClock, formatSeconds as seconds } from './labels';
 
 const darkButton = (
   label: string,
@@ -460,7 +454,7 @@ export class TeleprompterView {
     if (!state) return;
     const live = state.unitStartedAt === null ? 0 : Math.max(0, this.now() - state.unitStartedAt);
     const total = Object.values(state.elapsed).reduce((sum, ms) => sum + ms, 0) + live;
-    this.totalTimer.textContent = clock(total);
+    this.totalTimer.textContent = formatClock(Math.floor(total / 1000));
     this.counter.textContent =
       state.mode === 'practice' && !state.report
         ? `${String(state.index + 1)}/${String(state.units.length)}`

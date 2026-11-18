@@ -183,6 +183,3 @@ export class VideoFormat {
     return bodyIndex % 3 === 1 ? 'BROLL' : 'MEDIUM';
   }
 }
-
-export const isFormatId = (value: string): value is FormatId =>
-  (FORMAT_IDS as readonly string[]).includes(value);
