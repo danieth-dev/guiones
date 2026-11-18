@@ -74,7 +74,7 @@ export class SidebarView {
       ),
       h(
         'div',
-        { class: 'border-t border-line px-3 py-2' },
+        { class: 'px-3 py-2' },
         h(
           'button',
           {
